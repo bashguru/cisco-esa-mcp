@@ -46,6 +46,10 @@ class _Embedder:
                     s = get_settings()
                     log.info("Loading embedding model %s on %s", s.embedding_model, s.embedding_device)
                     self._model = SentenceTransformer(s.embedding_model, device=s.embedding_device)
+                    try:
+                        self._model.max_seq_length = s.embedding_max_tokens
+                    except Exception:  # noqa: BLE001
+                        pass
         return self._model
 
     def encode(self, texts: Sequence[str], is_query: bool = False) -> Any:

@@ -68,6 +68,8 @@ class Settings:
     embedding_dim: int = field(default_factory=lambda: _i("EMBEDDING_DIM", 1024))
     embedding_device: str = field(default_factory=lambda: _s("EMBEDDING_DEVICE", "cpu"))
     embedding_batch: int = field(default_factory=lambda: _i("EMBEDDING_BATCH", 16))
+    # Max tokens the local embedder encodes per chunk (above the 512 default).
+    embedding_max_tokens: int = field(default_factory=lambda: _i("EMBEDDING_MAX_TOKENS", 1024))
 
     # ---- Reranker (cross-encoder) --------------------------------------
     # The single biggest accuracy lever. bge-reranker-v2-m3 is CPU-friendly.
