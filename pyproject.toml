@@ -31,3 +31,6 @@ cisco-mcp-ingest = "cisco_mcp.ingest:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+cisco_mcp = ["assets/*.png"]

@@ -37,6 +37,24 @@ from .search import hybrid_search
 log = get_logger(__name__)
 settings = get_settings()
 
+
+def _server_icons():
+    """The TCS mark as the server's MCP icon (clients that render it show it)."""
+    try:
+        import base64
+
+        from mcp.types import Icon
+
+        p = os.path.join(os.path.dirname(__file__), "assets", "logo-256.png")
+        with open(p, "rb") as fh:
+            b64 = base64.b64encode(fh.read()).decode("ascii")
+        return [Icon(src=f"data:image/png;base64,{b64}", mimeType="image/png",
+                     sizes=["256x256"])]
+    except Exception as exc:  # noqa: BLE001
+        log.warning("server icon not loaded: %s", exc)
+        return None
+
+
 mcp: FastMCP = FastMCP(
     name=settings.server_name,
     instructions=(
@@ -47,6 +65,8 @@ mcp: FastMCP = FastMCP(
         "version, and page from each result. Figures and diagrams are searchable "
         "and can be fetched with get_image for inclusion in output."
     ),
+    icons=_server_icons(),
+    website_url="https://github.com/bashguru/cisco-esa-mcp",
 )
 
 
