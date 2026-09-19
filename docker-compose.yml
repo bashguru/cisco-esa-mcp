@@ -20,6 +20,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cisco}
       POSTGRES_DB: ${POSTGRES_DB:-ciscodocs}
     volumes:
+      # PostgreSQL 18+ images (ParadeDB latest) store data in a versioned
+      # subdirectory, so the volume mounts at /var/lib/postgresql, not .../data.
       - pgdata:/var/lib/postgresql
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"   # localhost only, for debugging
@@ -39,6 +41,7 @@ services:
     environment:
       # Compose-managed values win over .env for these.
       DATABASE_URL: postgresql://${POSTGRES_USER:-cisco}:${POSTGRES_PASSWORD:-cisco}@db:5432/${POSTGRES_DB:-ciscodocs}
+      INPUT_DIR: /data/input   # the app reads docs at the mount target, not the host path
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the container reach a host Ollama
     volumes:
