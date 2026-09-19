@@ -85,6 +85,7 @@ class CloudflareVerifier:
             algorithms=["RS256"],
             audience=self.s.cf_aud or None,
             options=options,
+            leeway=self.s.cf_leeway_seconds,
         )
 
 

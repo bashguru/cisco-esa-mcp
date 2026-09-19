@@ -133,6 +133,10 @@ class Settings:
     cf_team_domain: str = field(default_factory=lambda: _s("CF_ACCESS_TEAM_DOMAIN", ""))
     cf_aud: str = field(default_factory=lambda: _s("CF_ACCESS_AUD", ""))
     allow_any_token: bool = field(default_factory=lambda: _b("ALLOW_ANY_TOKEN", False))
+    # Clock-skew tolerance when validating the Access JWT. Access mints the token
+    # with iat=now at the edge; if this host's clock is even a fraction of a second
+    # behind, a zero-leeway check rejects it as "not yet valid (iat)".
+    cf_leeway_seconds: int = field(default_factory=lambda: _i("CF_ACCESS_LEEWAY", 60))
     users_file: str = field(default_factory=lambda: _s("USERS_FILE", "/app/config/users.yaml"))
 
     # ---- Logging --------------------------------------------------------

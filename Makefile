@@ -1,4 +1,4 @@
-.PHONY: help build up down logs ingest stats tunnel add-user list-users psql fmt
+.PHONY: help build up down logs ingest stats tunnel add-user list-users psql fmt test
 
 help:
 	@echo "Targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  make add-user NAME=Alice [CLIENT_ID=xxx.access | CREATE=1]"
 	@echo "  make list-users  - show configured remote users"
 	@echo "  make psql        - open a psql shell into the database"
+	@echo "  make test        - run the unit tests"
 
 build:
 	docker compose build
@@ -47,3 +48,6 @@ psql:
 
 fmt:
 	python -m pyflakes src || true
+
+test:
+	python -m pytest -q
