@@ -12,6 +12,8 @@ import base64
 import threading
 from typing import Any, Optional, Sequence
 
+import numpy as np
+
 from .config import get_settings
 from .logging_setup import get_logger
 
@@ -53,6 +55,8 @@ class _Embedder:
         expects as query/insert parameters, so we keep them as arrays.
         """
         s = get_settings()
+        if s.embedding_backend == "openai":
+            return self._encode_openai(list(texts))
         model = self._load()
         return model.encode(
             list(texts),
@@ -61,6 +65,36 @@ class _Embedder:
             convert_to_numpy=True,
             show_progress_bar=False,
         )
+
+    def _encode_openai(self, texts: list[str]) -> Any:
+        """Embed via an OpenAI-compatible endpoint (LM Studio / MLX, vLLM, ...).
+
+        Vectors are Matryoshka-truncated to EMBEDDING_DIM (so a 7168-dim model
+        like Qwen3-Embedding fits a Postgres HNSW index) and L2-normalized for
+        cosine distance.
+        """
+        import httpx
+
+        s = get_settings()
+        base = s.api_base.rstrip("/")
+        headers = {"Authorization": f"Bearer {s.api_key}"} if s.api_key else {}
+        vectors: list[list[float]] = []
+        for i in range(0, len(texts), s.embedding_batch):
+            batch = texts[i : i + s.embedding_batch]
+            resp = httpx.post(
+                f"{base}/embeddings",
+                json={"model": s.embed_api_model, "input": batch},
+                headers=headers,
+                timeout=180,
+            )
+            resp.raise_for_status()
+            data = sorted(resp.json()["data"], key=lambda d: d.get("index", 0))
+            vectors.extend(d["embedding"] for d in data)
+        arr = np.asarray(vectors, dtype=np.float32)
+        if arr.ndim == 2 and arr.shape[1] > s.embedding_dim:
+            arr = arr[:, : s.embedding_dim]          # MRL truncation
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        return arr / np.clip(norms, 1e-12, None)
 
     def encode_one(self, text: str, is_query: bool = False) -> Any:
         return self.encode([text], is_query=is_query)[0]
@@ -102,9 +136,14 @@ class _Captioner:
         s = get_settings()
         if not s.enable_vlm_captions:
             return None
-        if s.vlm_backend != "ollama":
-            log.warning("Unknown VLM backend %s; skipping caption", s.vlm_backend)
-            return None
+        if s.vlm_backend == "openai":
+            return self._caption_openai(png_bytes, s)
+        if s.vlm_backend == "ollama":
+            return self._caption_ollama(png_bytes, s)
+        log.warning("Unknown VLM backend %s; skipping caption", s.vlm_backend)
+        return None
+
+    def _caption_ollama(self, png_bytes: bytes, s) -> Optional[str]:
         try:
             import httpx
 
@@ -121,10 +160,42 @@ class _Captioner:
                 timeout=s.vlm_timeout,
             )
             resp.raise_for_status()
-            text = (resp.json().get("response") or "").strip()
-            return text or None
+            return (resp.json().get("response") or "").strip() or None
         except Exception as exc:  # noqa: BLE001 - captioning is best-effort
             log.warning("VLM caption failed (%s); continuing without it", exc)
+            return None
+
+    def _caption_openai(self, png_bytes: bytes, s) -> Optional[str]:
+        """Caption via an OpenAI-compatible vision chat endpoint (LM Studio / MLX)."""
+        try:
+            import httpx
+
+            b64 = base64.b64encode(png_bytes).decode("ascii")
+            headers = {"Authorization": f"Bearer {s.api_key}"} if s.api_key else {}
+            resp = httpx.post(
+                f"{s.api_base.rstrip('/')}/chat/completions",
+                json={
+                    "model": s.vlm_model,
+                    "temperature": 0.0,
+                    "max_tokens": 512,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": _CAPTION_PROMPT},
+                                {"type": "image_url",
+                                 "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                            ],
+                        }
+                    ],
+                },
+                headers=headers,
+                timeout=s.vlm_timeout,
+            )
+            resp.raise_for_status()
+            return (resp.json()["choices"][0]["message"]["content"] or "").strip() or None
+        except Exception as exc:  # noqa: BLE001 - captioning is best-effort
+            log.warning("VLM (openai) caption failed (%s); continuing without it", exc)
             return None
 
 

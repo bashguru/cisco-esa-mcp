@@ -59,7 +59,12 @@ class Settings:
     # BGE-M3 is the default: 1024-dim dense vectors, strong accuracy, runs on
     # CPU for a bounded corpus and flies on a GPU. Swap for Qwen3-Embedding on
     # a GPU box for a bit more accuracy (remember to change EMBEDDING_DIM).
+    # "local"  -> sentence-transformers in-process (EMBEDDING_MODEL).
+    # "openai" -> an OpenAI-compatible server (LM Studio / MLX, vLLM, ...) via
+    #             LLM_API_BASE; use EMBED_MODEL for the served model name.
+    embedding_backend: str = field(default_factory=lambda: _s("EMBEDDING_BACKEND", "local"))
     embedding_model: str = field(default_factory=lambda: _s("EMBEDDING_MODEL", "BAAI/bge-m3"))
+    embed_api_model: str = field(default_factory=lambda: _s("EMBED_MODEL", ""))
     embedding_dim: int = field(default_factory=lambda: _i("EMBEDDING_DIM", 1024))
     embedding_device: str = field(default_factory=lambda: _s("EMBEDDING_DEVICE", "cpu"))
     embedding_batch: int = field(default_factory=lambda: _i("EMBEDDING_BATCH", 16))
@@ -82,6 +87,12 @@ class Settings:
     )
     vlm_model: str = field(default_factory=lambda: _s("VLM_MODEL", "qwen2.5vl:7b"))
     vlm_timeout: int = field(default_factory=lambda: _i("VLM_TIMEOUT", 120))
+
+    # Shared OpenAI-compatible model server, used by the "openai" embedding
+    # backend and the "openai" VLM backend (e.g. LM Studio on Apple Silicon).
+    # api_base includes the /v1 suffix, e.g. http://host.docker.internal:1235/v1
+    api_base: str = field(default_factory=lambda: _s("LLM_API_BASE", ""))
+    api_key: str = field(default_factory=lambda: _s("LLM_API_KEY", ""))
 
     # ---- Ingestion / parsing -------------------------------------------
     input_dir: str = field(default_factory=lambda: _s("INPUT_DIR", "/data/input"))
