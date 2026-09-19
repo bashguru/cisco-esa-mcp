@@ -98,6 +98,9 @@ class Settings:
     input_dir: str = field(default_factory=lambda: _s("INPUT_DIR", "/data/input"))
     image_dir: str = field(default_factory=lambda: _s("IMAGE_DIR", "/data/images"))
     images_scale: float = field(default_factory=lambda: _f("IMAGES_SCALE", 2.0))
+    # Docling compute device for layout/table models: auto|cpu|mps|cuda.
+    # Use mps for native ingestion on Apple Silicon, cuda on an NVIDIA box.
+    docling_device: str = field(default_factory=lambda: _s("DOCLING_DEVICE", "auto"))
     enable_ocr: bool = field(default_factory=lambda: _b("ENABLE_OCR", True))
     chunk_max_tokens: int = field(default_factory=lambda: _i("CHUNK_MAX_TOKENS", 512))
 

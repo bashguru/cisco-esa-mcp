@@ -46,7 +46,9 @@ services:
       - "host.docker.internal:host-gateway"   # lets the container reach a host Ollama
     volumes:
       - ./config:/app/config
-      - images:/data/images
+      # Figure images live on the host so a native ingest and the container
+      # server share them, and the tree can be copied to another host to serve.
+      - ./data/images:/data/images
       - models:/data/models
       - logs:/data/logs
       - ${INPUT_DIR:-./docs_input}:/data/input:ro
@@ -66,6 +68,5 @@ services:
 
 volumes:
   pgdata:
-  images:
   models:
   logs:

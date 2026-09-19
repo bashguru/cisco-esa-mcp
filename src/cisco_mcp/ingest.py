@@ -100,6 +100,21 @@ def _get_converter():
         opts.generate_picture_images = True
         opts.do_ocr = s.enable_ocr
         opts.do_table_structure = True
+        dev = s.docling_device.lower()
+        if dev != "auto":
+            try:
+                from docling.datamodel.pipeline_options import (
+                    AcceleratorDevice, AcceleratorOptions,
+                )
+                mapping = {
+                    "cpu": AcceleratorDevice.CPU,
+                    "mps": AcceleratorDevice.MPS,
+                    "cuda": AcceleratorDevice.CUDA,
+                }
+                if dev in mapping:
+                    opts.accelerator_options = AcceleratorOptions(device=mapping[dev])
+            except Exception as exc:  # noqa: BLE001 - fall back to docling default
+                log.warning("Could not set docling device '%s': %s", dev, exc)
         _converter = DocumentConverter(
             format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
         )
@@ -218,7 +233,9 @@ def _save_image_file(img: PendingImage, doc_sha: str) -> str:
     fpath = os.path.join(out_dir, fname)
     with open(fpath, "wb") as fh:
         fh.write(img.png_bytes)
-    return fpath
+    # Store a path relative to IMAGE_DIR so the index is portable across
+    # machines (ingest on a Mac, serve on a NAS with a different IMAGE_DIR).
+    return os.path.relpath(fpath, s.image_dir)
 
 
 def _figure_content(img: PendingImage, meta: dict, vlm_caption: Optional[str]) -> str:
