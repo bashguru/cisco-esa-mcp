@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.egg-info
+docs_input
+data
+*.log
+.env
+config/users.yaml
+docs/*.png

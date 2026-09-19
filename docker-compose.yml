@@ -1,0 +1,68 @@
+# Cisco docs hybrid-search MCP server.
+#
+#   Local only (no auth):       docker compose up -d --build
+#   Remote via Cloudflare:      set AUTH_MODE=cloudflare + tunnel vars in .env, then
+#                               docker compose --profile tunnel up -d --build
+#   Ingest your PDFs:           docker compose run --rm mcp python scripts/ingest.py
+#
+# The MCP host port is bound to 127.0.0.1 only. In remote mode the public path in
+# is the Cloudflare Tunnel, which reaches the server over the compose network as
+# http://mcp:8000 and is gated by Cloudflare Access (service tokens).
+
+name: cisco-esa-mcp
+
+services:
+  db:
+    image: paradedb/paradedb:latest   # bundles pg_search (BM25) + pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cisco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cisco}
+      POSTGRES_DB: ${POSTGRES_DB:-ciscodocs}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"   # localhost only, for debugging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cisco} -d ${POSTGRES_DB:-ciscodocs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mcp:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Compose-managed values win over .env for these.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cisco}:${POSTGRES_PASSWORD:-cisco}@db:5432/${POSTGRES_DB:-ciscodocs}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the container reach a host Ollama
+    volumes:
+      - ./config:/app/config
+      - images:/data/images
+      - models:/data/models
+      - logs:/data/logs
+      - ${INPUT_DIR:-./docs_input}:/data/input:ro
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8000}:8000"    # localhost only
+
+  # Optional: only starts with `--profile tunnel`.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    depends_on:
+      - mcp
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
+volumes:
+  pgdata:
+  images:
+  models:
+  logs:

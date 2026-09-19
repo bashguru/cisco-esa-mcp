@@ -1,0 +1,16 @@
+# Remote user allowlist for AUTH_MODE=cloudflare.
+#
+# Each entry maps a Cloudflare Access *service token* to a friendly name that
+# shows up in the audit log. The `client_id` is the token's Client ID (the value
+# clients send as the CF-Access-Client-Id header). Secrets are NEVER stored here;
+# Cloudflare holds them.
+#
+# Copy this file to users.yaml and edit. Add entries with scripts/add_user.py.
+#
+# If ALLOW_ANY_TOKEN=true, any token your Access policy accepts is allowed even
+# if it is not listed here (it will be logged by its client_id).
+
+users:
+  - name: "Example User"
+    client_id: "REPLACE_WITH_SERVICE_TOKEN_CLIENT_ID.access"
+    enabled: true
