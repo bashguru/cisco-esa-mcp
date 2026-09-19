@@ -329,10 +329,11 @@ def ingest_file(path: str) -> str:
 def ingest_dir(directory: str) -> dict[str, int]:
     counts = {"indexed": 0, "skipped": 0, "error": 0}
     files = sorted(
-        p for p in Path(directory).rglob("*")
-        if p.is_file() and p.suffix.lower() in (PDF_EXTS | TEXT_EXTS)
+        (p for p in Path(directory).rglob("*")
+         if p.is_file() and p.suffix.lower() in (PDF_EXTS | TEXT_EXTS)),
+        key=lambda p: p.stat().st_size,   # smallest first: useful results land fast
     )
-    log.info("Found %d candidate files under %s", len(files), directory)
+    log.info("Found %d candidate files under %s (smallest first)", len(files), directory)
     for p in files:
         counts[ingest_file(str(p))] += 1
     audit_event("ingest_complete", directory=directory, **counts)
