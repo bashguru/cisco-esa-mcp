@@ -117,6 +117,13 @@ class _Reranker:
                     s = get_settings()
                     log.info("Loading reranker %s on %s", s.rerank_model, s.rerank_device)
                     self._model = CrossEncoder(s.rerank_model, device=s.rerank_device)
+                    if s.torch_threads > 0:
+                        try:
+                            import torch
+
+                            torch.set_num_threads(s.torch_threads)
+                        except Exception:  # noqa: BLE001
+                            pass
         return self._model
 
     def score(self, query: str, passages: Sequence[str]) -> list[float]:

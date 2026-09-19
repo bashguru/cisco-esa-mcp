@@ -18,10 +18,12 @@ corpus_stats       document / chunk / image counts
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from typing import Annotated, Any, Optional
 
+from anyio import to_thread
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.utilities.types import Image
@@ -52,8 +54,20 @@ def _audit_tool(tool: str, **fields: Any) -> None:
     audit_event("tool_call", tool=tool, identity=get_identity(), **fields)
 
 
+# Bounded concurrency for heavy (embed + rerank) work so the host isn't swamped
+# when several clients query at once. Excess requests wait on the semaphore.
+_search_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def _search_gate() -> asyncio.Semaphore:
+    global _search_semaphore
+    if _search_semaphore is None:
+        _search_semaphore = asyncio.Semaphore(max(1, settings.request_concurrency))
+    return _search_semaphore
+
+
 @mcp.tool
-def search_docs(
+async def search_docs(
     query: Annotated[str, "Natural-language question or keywords."],
     product: Annotated[Optional[str], "Filter to a product line (see list_products)."] = None,
     version: Annotated[Optional[str], "Filter to a version, e.g. '16.5' (also matches 16.5.x)."] = None,
@@ -64,10 +78,14 @@ def search_docs(
     """Hybrid (BM25 + vector) search with cross-encoder reranking.
 
     Returns ranked passages with citations. Results whose `has_image` is true
-    carry an `image_id` you can pass to get_image.
+    carry an `image_id` you can pass to get_image. Heavy model work is gated by
+    REQUEST_CONCURRENCY so simultaneous requests queue rather than swamp the host.
     """
     t0 = time.monotonic()
-    results = hybrid_search(query, product, version, doc_type, content_type, top_k)
+    async with _search_gate():
+        results = await to_thread.run_sync(
+            hybrid_search, query, product, version, doc_type, content_type, top_k
+        )
     _audit_tool(
         "search_docs",
         query=query[:200],

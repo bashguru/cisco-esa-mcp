@@ -118,6 +118,10 @@ class Settings:
     host: str = field(default_factory=lambda: _s("MCP_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: _i("MCP_PORT", 8000))
     mcp_path: str = field(default_factory=lambda: _s("MCP_PATH", "/mcp"))
+    # Cap concurrent heavy (embed + rerank) operations so simultaneous requests
+    # queue instead of swamping the host. Raise it on a GPU box.
+    request_concurrency: int = field(default_factory=lambda: _i("REQUEST_CONCURRENCY", 2))
+    torch_threads: int = field(default_factory=lambda: _i("TORCH_THREADS", 0))  # 0 = library default
 
     # ---- Auth -----------------------------------------------------------
     # "local"      -> no authentication (bind to localhost only).
