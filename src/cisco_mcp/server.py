@@ -18,6 +18,7 @@ corpus_stats       document / chunk / image counts
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Annotated, Any, Optional
 
@@ -134,7 +135,8 @@ def get_image(
         raise ToolError(f"No image with id {image_id}")
     _audit_tool("get_image", image_id=image_id, page=info.get("page"),
                 document_id=info.get("document_id"))
-    return Image(path=info["file_path"])
+    # file_path is stored relative to IMAGE_DIR (absolute paths still resolve).
+    return Image(path=os.path.join(settings.image_dir, info["file_path"]))
 
 
 @mcp.tool
